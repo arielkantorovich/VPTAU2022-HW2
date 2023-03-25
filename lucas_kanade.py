@@ -7,7 +7,7 @@ from scipy.interpolate import griddata
 
 # FILL IN YOUR ID
 ID1 = 308345891
-ID2 = 987654321
+ID2 = 211670849
 
 
 PYRAMID_FILTER = 1.0 / 256 * np.array([[1, 4, 6, 4, 1],
@@ -111,11 +111,34 @@ def lucas_kanade_step(I1: np.ndarray,
         original image. dv encodes the optical flow parameters in rows and du
         in columns.
     """
-    """INSERT YOUR CODE HERE.
-    Calculate du and dv correctly.
-    """
+    """INSERT YOUR CODE HERE"""
+    # Initialize step
     du = np.zeros(I1.shape)
     dv = np.zeros(I1.shape)
+    h, w = I1.shape
+    epsilon = 1e-4
+    # Step1:
+    Ix = signal.convolve2d(in1=I2, in2=X_DERIVATIVE_FILTER, mode='same', boundary='wrap')
+    Iy = signal.convolve2d(in1=I2, in2=Y_DERIVATIVE_FILTER, mode='same', boundary='wrap')
+    # Step2:
+    It = I2 - I1
+    # Step3:
+    for i in range(window_size//2, h-window_size//2):
+        for j in range(window_size//2, w-window_size//2):
+            r_lower, r_upper = i - window_size//2, i + 1 + window_size//2
+            c_lower, c_upper = j - window_size//2, j + 1 + window_size//2
+            A = np.stack((Ix[r_lower:r_upper, c_lower:c_upper].reshape(-1),
+                          Iy[r_lower:r_upper, c_lower:c_upper].reshape(-1)),
+                         axis=-1)
+            # Check solution converge
+            if np.linalg.det(A.T@A) < epsilon:
+                du[i, j] = 0
+                dv[i, j] = 0
+            else:
+                b = It[r_lower:r_upper, c_lower:c_upper].reshape(-1, 1)
+                U_V_LS = np.linalg.inv(A.T @ A) @ A.T @ b
+                du[i, j] = U_V_LS[0, 0]
+                dv[i, j] = U_V_LS[1, 0]
     return du, dv
 
 
