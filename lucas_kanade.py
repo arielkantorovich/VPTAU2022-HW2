@@ -4,11 +4,9 @@ from tqdm import tqdm
 from scipy import signal
 from scipy.interpolate import griddata
 
-
 # FILL IN YOUR ID
 ID1 = 308345891
 ID2 = 211670849
-
 
 PYRAMID_FILTER = 1.0 / 256 * np.array([[1, 4, 6, 4, 1],
                                        [4, 16, 24, 16, 4],
@@ -123,20 +121,21 @@ def lucas_kanade_step(I1: np.ndarray,
     # Step2:
     It = I2 - I1
     # Step3:
-    for i in range(window_size//2, h-window_size//2):
-        for j in range(window_size//2, w-window_size//2):
-            r_lower, r_upper = i - window_size//2, i + 1 + window_size//2
-            c_lower, c_upper = j - window_size//2, j + 1 + window_size//2
+    for i in range(window_size // 2, h - window_size // 2):
+        for j in range(window_size // 2, w - window_size // 2):
+            r_lower, r_upper = i - window_size // 2, i + 1 + window_size // 2
+            c_lower, c_upper = j - window_size // 2, j + 1 + window_size // 2
             A = np.stack((Ix[r_lower:r_upper, c_lower:c_upper].reshape(-1),
                           Iy[r_lower:r_upper, c_lower:c_upper].reshape(-1)),
                          axis=-1)
             # Check solution converge
-            if np.linalg.det(A.T@A) < epsilon:
+            C = np.linalg.det(A.T @ A)
+            if C < epsilon:
                 du[i, j] = 0
                 dv[i, j] = 0
             else:
                 b = It[r_lower:r_upper, c_lower:c_upper].reshape(-1, 1)
-                U_V_LS = np.linalg.inv(A.T @ A) @ A.T @ b
+                U_V_LS = C @ A.T @ b
                 du[i, j] = U_V_LS[0, 0]
                 dv[i, j] = U_V_LS[1, 0]
     return du, dv
@@ -172,9 +171,25 @@ def warp_image(image: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
         image_warp: np.ndarray. Warped image.
     """
     image_warp = image.copy()
-    """INSERT YOUR CODE HERE.
-    Replace image_warp with something else.
-    """
+    h, w = image.shape
+    """INSERT YOUR CODE HERE"""
+    # Step1:
+    U_FACTOR = w / u.shape[1]
+    V_FACTOR = h / v.shape[0]
+    u = cv2.resize(u, (h, w), interpolation=cv2.INTER_LINEAR) * U_FACTOR
+    v = cv2.resize(v, (h, w), interpolation=cv2.INTER_LINEAR) * V_FACTOR
+    # Step 2:
+    # (2.1)
+    x = np.arange(0, w)
+    y = np.arange(0, h)
+    grid_x, grid_y = np.mgrid[0:w, 0:h]
+    # (2.3) + (2.2)
+    interp = griddata((grid_x + u, grid_y + v), values=image.flatten(),
+                      xi=(grid_x, grid_y), method='linear')
+    image_warp = interp.reshape((h, w))
+    # (2.4) Handle with holes
+    mask = np.isnan(image_warp)
+    image_warp[np.where(mask == True)] = image[np.where(mask == True)]
     return image_warp
 
 
@@ -403,5 +418,3 @@ def lucas_kanade_faster_video_stabilization_fix_effects(
     """
     """INSERT YOUR CODE HERE."""
     pass
-
-
