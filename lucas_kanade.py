@@ -175,8 +175,8 @@ def warp_image(image: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
     # Step1:
     U_FACTOR = w / u.shape[1]
     V_FACTOR = h / v.shape[0]
-    u = cv2.resize(u, (h, w), interpolation=cv2.INTER_LINEAR) * U_FACTOR
-    v = cv2.resize(v, (h, w), interpolation=cv2.INTER_LINEAR) * V_FACTOR
+    u = cv2.resize(u, (w, h), interpolation=cv2.INTER_LINEAR) * U_FACTOR
+    v = cv2.resize(v, (w, h), interpolation=cv2.INTER_LINEAR) * V_FACTOR
     # Step 2:
     # (2.1)
     x, y = np.meshgrid(np.arange(w), np.arange(h))
@@ -186,7 +186,7 @@ def warp_image(image: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
     points_new = np.column_stack((x_new, y_new))
     # (2.3) + (2.2)
     image_warp = griddata(points=points, values=image.flatten(),
-                      xi=points_new, method='linear', fill_value=np.nan)
+                      xi=points_new, method='cubic', fill_value=np.nan)
     # (2.4) Handle with holes
     image_warp[np.isnan(image_warp)] = image.flatten()[np.isnan(image_warp)]
     # Reshape to the original shape
@@ -235,6 +235,7 @@ def lucas_kanade_optical_flow(I1: np.ndarray,
     """INSERT YOUR CODE HERE.
         Replace image_warp with something else.
         """
+    DOWN_FACTOR = 2
     h_factor = int(np.ceil(I1.shape[0] / (2 ** (num_levels - 1 + 1))))
     w_factor = int(np.ceil(I1.shape[1] / (2 ** (num_levels - 1 + 1))))
     IMAGE_SIZE = (w_factor * (2 ** (num_levels - 1 + 1)),
@@ -249,10 +250,18 @@ def lucas_kanade_optical_flow(I1: np.ndarray,
     # start from u and v in the size of smallest image
     u = np.zeros(pyarmid_I2[-1].shape)
     v = np.zeros(pyarmid_I2[-1].shape)
-    """INSERT YOUR CODE HERE.
-       Replace u and v with their true value."""
-    u = np.zeros(I1.shape)
-    v = np.zeros(I1.shape)
+    """INSERT YOUR CODE HERE.Replace u and v with their true value."""
+    for level in range(num_levels, -1, -1):
+        I2_warp = warp_image(pyarmid_I2[level], u, v)
+        for iter in range(max_iter):
+            du, dv = lucas_kanade_step(I1=pyramid_I1[level], I2=I2_warp, window_size=window_size)
+            u += du
+            v += dv
+            I2_warp = warp_image(pyarmid_I2[level], u, v)
+        if level > 0:
+            h_scale, w_scale = pyarmid_I2[level - 1].shape
+            u = cv2.resize(u, (w_scale, h_scale)) * DOWN_FACTOR
+            v = cv2.resize(v, (w_scale, h_scale)) * DOWN_FACTOR
     return u, v
 
 
