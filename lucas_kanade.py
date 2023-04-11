@@ -72,7 +72,6 @@ def build_pyramid(image: np.ndarray, num_levels: int) -> list[np.ndarray]:
         pyramid.append(img_lev)
     return pyramid
 
-
 def lucas_kanade_step(I1: np.ndarray,
                       I2: np.ndarray,
                       window_size: int) -> tuple[np.ndarray, np.ndarray]:
@@ -116,8 +115,8 @@ def lucas_kanade_step(I1: np.ndarray,
     h, w = I1.shape
     epsilon = 1e-4
     # Step1:
-    Ix = signal.convolve2d(in1=I2, in2=X_DERIVATIVE_FILTER, mode='same', boundary='wrap')
-    Iy = signal.convolve2d(in1=I2, in2=Y_DERIVATIVE_FILTER, mode='same', boundary='wrap')
+    Ix = signal.convolve2d(in1=I2, in2=X_DERIVATIVE_FILTER, mode='same', boundary='symm')
+    Iy = signal.convolve2d(in1=I2, in2=Y_DERIVATIVE_FILTER, mode='same', boundary='symm')
     # Step2:
     It = I2 - I1
     # Step3:
@@ -129,13 +128,13 @@ def lucas_kanade_step(I1: np.ndarray,
                           Iy[r_lower:r_upper, c_lower:c_upper].reshape(-1)),
                          axis=-1)
             # Check solution converge
-            C = np.linalg.det(A.T @ A)
-            if C < epsilon:
+            C = A.T @ A
+            if np.linalg.det(C) < epsilon:
                 du[i, j] = 0
                 dv[i, j] = 0
             else:
-                b = It[r_lower:r_upper, c_lower:c_upper].reshape(-1, 1)
-                U_V_LS = C @ A.T @ b
+                b = -It[r_lower:r_upper, c_lower:c_upper].reshape(-1, 1)
+                U_V_LS = np.linalg.inv(C) @ A.T @ b
                 du[i, j] = U_V_LS[0, 0]
                 dv[i, j] = U_V_LS[1, 0]
     return du, dv
@@ -180,16 +179,18 @@ def warp_image(image: np.ndarray, u: np.ndarray, v: np.ndarray) -> np.ndarray:
     v = cv2.resize(v, (h, w), interpolation=cv2.INTER_LINEAR) * V_FACTOR
     # Step 2:
     # (2.1)
-    x = np.arange(0, w)
-    y = np.arange(0, h)
-    grid_x, grid_y = np.mgrid[0:w, 0:h]
+    x, y = np.meshgrid(np.arange(w), np.arange(h))
+    points = np.column_stack((x.flatten(), y.flatten()))
+    x_new = x.flatten() + u.flatten()
+    y_new = y.flatten() + v.flatten()
+    points_new = np.column_stack((x_new, y_new))
     # (2.3) + (2.2)
-    interp = griddata((grid_x + u, grid_y + v), values=image.flatten(),
-                      xi=(grid_x, grid_y), method='linear')
-    image_warp = interp.reshape((h, w))
+    image_warp = griddata(points=points, values=image.flatten(),
+                      xi=points_new, method='linear', fill_value=np.nan)
     # (2.4) Handle with holes
-    mask = np.isnan(image_warp)
-    image_warp[np.where(mask == True)] = image[np.where(mask == True)]
+    image_warp[np.isnan(image_warp)] = image.flatten()[np.isnan(image_warp)]
+    # Reshape to the original shape
+    image_warp = image_warp.reshape((h, w))
     return image_warp
 
 
