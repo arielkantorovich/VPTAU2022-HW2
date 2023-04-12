@@ -1,0 +1,9 @@
+{
+    "[TAU, TIME] Taking all pixels into account LK implementation": 3165.1220282225031,
+    "[TAU, TIME] FASTER LK implementation": 2137.3420882225037,
+    "[TAU, TIME] FASTER, WITHOUT BORDERS LK implementation ": 2743.1494176387787,
+    "[TAU, MSE] original video ": 60.2267868043959,
+    "[TAU, MSE] naive implementation ": 20.121620565713393,
+    "[TAU, MSE] FASTER implementation ": 35.37508914745204,
+    "[TAU, MSE] FASTER, WITHOUT BORDERS LK implementation ": 31.44655615988949
+}
